@@ -46,6 +46,9 @@ limit).
 
 **Option 1 — npm** (add to your `opencode.json`):
 
+> Note: works only **after** the package is published to npm. Until it is
+> published, use Option 2, 3, or 4 instead.
+
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
@@ -66,6 +69,13 @@ cp src/scratch-plugin.js ~/.config/opencode/plugins/
   "$schema": "https://opencode.ai/config.json",
   "plugin": ["/absolute/path/to/opencode-scratch-memory/src/scratch-plugin.js"]
 }
+```
+
+**Option 4 — GitHub** (clone and copy the file — works right now, no npm needed):
+
+```sh
+git clone https://github.com/Sergey-Vladimirovich-Hankok/opencode-scratch-memory.git
+cp opencode-scratch-memory/src/scratch-plugin.js ~/.config/opencode/plugins/
 ```
 
 Restart OpenCode after changing the config (plugins load at startup).

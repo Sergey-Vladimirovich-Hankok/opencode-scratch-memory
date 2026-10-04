@@ -29,6 +29,10 @@
     "session"
   ],
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "test": "bun test",
     "build": "bun build src/scratch-plugin.js --target=bun --outdir=dist"
@@ -37,8 +41,8 @@
     "@opencode-ai/plugin": "*"
   },
   "devDependencies": {
-    "@opencode-ai/plugin": "latest",
-    "@types/bun": "latest"
+    "@opencode-ai/plugin": "1.18.34",
+    "@types/bun": "1.4.2"
   },
   "engines": {
     "bun": ">=1.1.0"

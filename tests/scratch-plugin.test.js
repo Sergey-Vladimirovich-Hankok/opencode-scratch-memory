@@ -1,6 +1,6 @@
-// Тесты scratch-plugin (эфемерная сессионная БД, отчёт session_scoped_memory_analysis §5-§8).
-// Работают на ВРЕМЕННОМ файле БД, реальный ~/.local/omni/memory/scratch.db не трогают.
-// Раннер: bun test tests/test_scratch_plugin.js
+// scratch-plugin tests (ephemeral session-scoped DB, report session_scoped_memory_analysis §5-§8).
+// Run against a TEMPORARY DB file; the real ~/.local/omni/memory/scratch.db is untouched.
+// Runner: bun test tests/scratch-plugin.test.js
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
@@ -25,25 +25,25 @@ afterEach(() => {
 });
 
 describe('scratch — upsert', () => {
-  test('два upsert одного (session, kind, key) → одна строка, value обновлён', () => {
+  test('two upserts of the same (session, kind, key) → one row, value updated', () => {
     expect(scratchWrite(d, 'sessA', 'fact', 'limit', 'v1').ok).toBe(true);
     const ts1 = d.query('SELECT ts FROM scratch WHERE session_id = ? AND key = ?').get('sessA', 'limit').ts;
     expect(scratchWrite(d, 'sessA', 'fact', 'limit', 'v2').ok).toBe(true);
     const rows = d.query('SELECT * FROM scratch WHERE session_id = ?').all('sessA');
     expect(rows.length).toBe(1);
     expect(rows[0].value).toBe('v2');
-    expect(rows[0].ts).toBeGreaterThanOrEqual(ts1); // upsert обновил ts, строка одна
+    expect(rows[0].ts).toBeGreaterThanOrEqual(ts1); // upsert updated ts, single row
   });
 });
 
-describe('scratch — изоляция сессий', () => {
-  test('запись в A не видна из B', () => {
+describe('scratch — session isolation', () => {
+  test('write to A is not visible from B', () => {
     scratchWrite(d, 'sessA', 'fact', 'k', 'only-A');
     expect(scratchRead(d, 'sessB', {})).toHaveLength(0);
     expect(scratchList(d, 'sessB')).toHaveLength(0);
   });
 
-  test('чужой sessionID в args игнорируется — пишется в сессию из контекста', async () => {
+  test('foreign sessionID in args is ignored — written to the context session', async () => {
     const tools = buildTools(() => d);
     const out = await tools.scratch_write.execute(
       { kind: 'fact', key: 'k', value: 'x', sessionID: 'EVIL_SESSION' },
@@ -55,32 +55,32 @@ describe('scratch — изоляция сессий', () => {
   });
 });
 
-describe('scratch — фильтры scratch_read', () => {
+describe('scratch — scratch_read filters', () => {
   beforeEach(() => {
     scratchWrite(d, 's', 'fact', 'f1', 'fact-val');
     scratchWrite(d, 's', 'path', 'p1', 'path-val');
     scratchWrite(d, 's', 'path', 'p2', 'path-val-2');
   });
 
-  test('фильтр по kind', () => {
+  test('filter by kind', () => {
     const rows = scratchRead(d, 's', { kind: 'path' });
     expect(rows).toHaveLength(2);
     expect(rows.every(r => r.kind === 'path')).toBe(true);
   });
 
-  test('фильтр по key', () => {
+  test('filter by key', () => {
     const rows = scratchRead(d, 's', { key: 'p2' });
     expect(rows).toHaveLength(1);
     expect(rows[0].value).toBe('path-val-2');
   });
 
-  test('без фильтров — всё', () => {
+  test('no filters — everything', () => {
     expect(scratchRead(d, 's', {})).toHaveLength(3);
   });
 });
 
 describe('scratch — scratch_clear', () => {
-  test('удаляет только свою сессию', () => {
+  test('deletes only its own session', () => {
     scratchWrite(d, 'sessA', 'fact', 'k', 'a');
     scratchWrite(d, 'sessB', 'fact', 'k', 'b');
     const res = scratchClear(d, 'sessA');
@@ -90,12 +90,12 @@ describe('scratch — scratch_clear', () => {
   });
 });
 
-describe('scratch — дискриминатор чистый/аварийный выход', () => {
+describe('scratch — clean/crash exit discriminator', () => {
   beforeEach(() => {
     scratchWrite(d, 'sub', 'progress', 'step1', 'done');
   });
 
-  test('error == null → DELETE строк', () => {
+  test('error == null → rows deleted', () => {
     const messages = [
       { info: { role: 'user' }, parts: [] },
       { info: { role: 'assistant', error: null }, parts: [] },
@@ -107,7 +107,7 @@ describe('scratch — дискриминатор чистый/аварийный
     expect(scratchRead(d, 'sub', {})).toHaveLength(0);
   });
 
-  test('error != null → строки сохранены (resume прочитает)', () => {
+  test('error != null → rows kept (a resume will read them)', () => {
     const messages = [
       { info: { role: 'assistant', error: { name: 'Error', data: { message: 'aborted' } } }, parts: [] },
     ];
@@ -118,13 +118,13 @@ describe('scratch — дискриминатор чистый/аварийный
     expect(scratchRead(d, 'sub', {})).toHaveLength(1);
   });
 
-  test('нет assistant-сообщения → skip (консервативно)', () => {
+  test('no assistant message → skip (conservative)', () => {
     expect(decideIdleCleanup([{ info: { role: 'user' }, parts: [] }])).toBe('skip');
     expect(handleSessionIdle(d, 'sub', [{ info: { role: 'user' } }]).deleted).toBe(0);
     expect(scratchRead(d, 'sub', {})).toHaveLength(1);
   });
 
-  test('после assistant идёт tool/user → skip (idle между шагами, не стираем)', () => {
+  test('assistant followed by tool/user → skip (idle between steps, do not wipe)', () => {
     const messages = [
       { info: { role: 'assistant', error: null }, parts: [] },
       { info: { role: 'tool' }, parts: [] },
@@ -135,8 +135,8 @@ describe('scratch — дискриминатор чистый/аварийный
   });
 });
 
-describe('scratch — TTL-подметание', () => {
-  test('строка 8 дней назад удалена, 1 день — осталась', () => {
+describe('scratch — TTL sweep', () => {
+  test('row 8 days old removed, 1 day old kept', () => {
     const now = Date.now();
     d.query('INSERT INTO scratch (session_id, kind, key, value, ts) VALUES (?,?,?,?,?)').run('old', 'fact', 'k8', 'v', now - 8 * 24 * 60 * 60 * 1000);
     d.query('INSERT INTO scratch (session_id, kind, key, value, ts) VALUES (?,?,?,?,?)').run('new', 'fact', 'k1', 'v', now - 1 * 24 * 60 * 60 * 1000);
@@ -147,43 +147,43 @@ describe('scratch — TTL-подметание', () => {
   });
 });
 
-describe('scratch — лимиты §5', () => {
-  test('value > 4KB обрезается с маркером', () => {
+describe('scratch — limits §5', () => {
+  test('value > 4KB is truncated with a marker', () => {
     const big = 'x'.repeat(MAX_VALUE_BYTES + 5000);
     const res = scratchWrite(d, 's', 'fact', 'big', big);
     expect(res.ok).toBe(true);
     expect(res.truncated).toBe(true);
     const row = d.query('SELECT value FROM scratch WHERE key = ?').get('big');
-    expect(Buffer.byteLength(row.value, 'utf8')).toBeLessThanOrEqual(MAX_VALUE_BYTES + 20); // маркер
+    expect(Buffer.byteLength(row.value, 'utf8')).toBeLessThanOrEqual(MAX_VALUE_BYTES + 20); // marker
     expect(row.value.endsWith('…[truncated]')).toBe(true);
   });
 
-  test('UTF-8-символы не разрываются при обрезке', () => {
-    const { text, truncated } = truncateUtf8('абв'.repeat(2000), 100);
+  test('UTF-8 characters are not split on truncation', () => {
+    const { text, truncated } = truncateUtf8('€'.repeat(2000), 100);
     expect(truncated).toBe(true);
     expect(() => Buffer.from(text, 'utf8').toString('utf8')).not.toThrow();
     expect(text.endsWith('…[truncated]')).toBe(true);
   });
 
-  test('лимит 200 строк на сессию: новая строка отклоняется, upsert — разрешён', () => {
+  test('200 rows/session limit: new row rejected, upsert allowed', () => {
     for (let i = 0; i < MAX_ROWS_PER_SESSION; i++) scratchWrite(d, 's', 'fact', `k${i}`, 'v');
     expect(scratchWrite(d, 's', 'fact', 'k-new', 'v').ok).toBe(false);
     expect(scratchWrite(d, 's', 'fact', 'k-new', 'v').warning).toBeTruthy();
-    // upsert существующего ключа — всё ещё работает
+    // upsert of an existing key still works
     expect(scratchWrite(d, 's', 'fact', 'k0', 'updated').ok).toBe(true);
     expect(d.query('SELECT COUNT(*) AS c FROM scratch WHERE session_id = ?').get('s').c).toBe(MAX_ROWS_PER_SESSION);
   });
 });
 
-describe('scratch — схема §5', () => {
-  test('таблица scratch: PK (session_id, kind, key), индекс idx_scratch_session', () => {
+describe('scratch — schema §5', () => {
+  test('table scratch: PK (session_id, kind, key), index idx_scratch_session', () => {
     const table = d.query("SELECT sql FROM sqlite_master WHERE type='table' AND name='scratch'").get();
     expect(table.sql).toContain('PRIMARY KEY (session_id, kind, key)');
     const idx = d.query("SELECT sql FROM sqlite_master WHERE type='index' AND name='idx_scratch_session'").get();
     expect(idx.sql).toContain('scratch(session_id, ts)');
   });
 
-  test('WAL режим включён', () => {
+  test('WAL mode is enabled', () => {
     expect(d.query('PRAGMA journal_mode').get().journal_mode).toBe('wal');
   });
 });
