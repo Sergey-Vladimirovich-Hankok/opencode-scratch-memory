@@ -9,8 +9,17 @@
   },
   "files": [
     "src",
+    "tests",
     "examples"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sergey-Vladimirovich-Hankok/opencode-scratch-memory.git"
+  },
+  "homepage": "https://github.com/Sergey-Vladimirovich-Hankok/opencode-scratch-memory#readme",
+  "bugs": {
+    "url": "https://github.com/Sergey-Vladimirovich-Hankok/opencode-scratch-memory/issues"
+  },
   "keywords": [
     "opencode",
     "opencode-plugin",
