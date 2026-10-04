@@ -1,6 +1,15 @@
 # OpenCode Scratch Memory
 
-Session-scoped scratch memory for OpenCode subagents.
+Session-scoped scratch memory for OpenCode subagents: an ephemeral scratchpad
+(SQLite notepad) that survives context compaction and a crash within the
+session, and is wiped on a clean exit.
+
+[![CI](https://img.shields.io/github/actions/workflow/status/Sergey-Vladimirovich-Hankok/opencode-scratch-memory/ci.yml?label=ci)](https://github.com/Sergey-Vladimirovich-Hankok/opencode-scratch-memory/actions)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![OpenCode plugin](https://img.shields.io/badge/opencode-plugin-0080ff.svg)](https://opencode.ai)
+[![Runtime: Bun](https://img.shields.io/badge/runtime-bun-000000.svg)](https://bun.sh)
+[![Storage: SQLite](https://img.shields.io/badge/storage-sqlite-003b57.svg)](https://sqlite.org)
+[![Subagent memory](https://img.shields.io/badge/subagent-memory-8a2be2.svg)](https://github.com/Sergey-Vladimirovich-Hankok/opencode-scratch-memory)
 
 ## Why
 
@@ -9,9 +18,29 @@ context compaction, and anything the subagent "remembered" (a file path it
 found, a command it ran, a baseline it measured) is gone — the resumed or next
 step starts from scratch and re-discovers the same facts.
 
-`opencode-scratch-memory` gives every subagent session a tiny private notepad:
-a per-session SQLite scratchpad that survives within the session, is wiped on a
-clean exit, and deliberately **never** enters the global memory / RAG index.
+`opencode-scratch-memory` is an opencode plugin that gives every subagent
+session a tiny private notepad — a session-scoped, ephemeral scratchpad (one
+SQLite notepad per `session_id`) that survives context compaction and a crash
+within the session, is wiped on a clean exit, and deliberately **never**
+enters the global memory / RAG index.
+
+## Use cases — why not `memory.db`?
+
+OpenCode's global memory (`memory.db`, the RAG index) is long-term knowledge
+shared across **all** sessions — durable facts, lessons, decisions. That is the
+wrong shape for working state, which is exactly what a subagent loses when its
+context is compacted.
+
+| | Global memory (`memory.db` / RAG) | `opencode-scratch-memory` |
+| --- | --- | --- |
+| Scope | All sessions, long-term | Session-scoped: one notepad per `session_id`, invisible to other sessions |
+| Lifetime | Permanent, indexed for RAG search | Ephemeral: wiped on a clean subagent exit; orphaned rows expire after 7 days (TTL) |
+| Enters RAG index | Yes | Never — a separate `scratch.db` file |
+| After a crash | n/a | Rows are **kept**, so a resumed run reads its own draft back |
+| Write here | Durable facts, lessons, decisions | Working state: paths, commands, baselines, progress, in-flight decisions |
+
+In short: `memory.db` answers "what did I learn?"; the scratchpad answers
+"what was I doing?" — the two complement each other.
 
 ## How it works
 

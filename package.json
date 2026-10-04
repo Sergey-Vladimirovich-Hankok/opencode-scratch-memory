@@ -1,7 +1,7 @@
 {
   "name": "opencode-scratch-memory",
   "version": "0.1.0",
-  "description": "Session-scoped scratch memory for OpenCode: subagents keep a tiny private notepad (facts, paths, commands, progress, baseline, decisions) that is wiped on a clean exit and survives a crash for resume.",
+  "description": "opencode plugin: session-scoped scratch memory for subagents — ephemeral SQLite scratchpad (paths, commands, baselines, progress) that survives context compaction and crashes, wiped on clean exit.",
   "type": "module",
   "main": "src/scratch-plugin.js",
   "exports": {
@@ -23,10 +23,22 @@
   "keywords": [
     "opencode",
     "opencode-plugin",
-    "scratch",
-    "memory",
+    "opencode-ai",
     "subagent",
-    "session"
+    "agent",
+    "memory",
+    "scratch",
+    "scratchpad",
+    "notepad",
+    "context-management",
+    "context-compaction",
+    "session",
+    "session-scoped",
+    "ephemeral",
+    "bun",
+    "sqlite",
+    "ai",
+    "llm"
   ],
   "license": "MIT",
   "publishConfig": {
